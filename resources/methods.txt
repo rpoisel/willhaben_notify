@@ -1,0 +1,5 @@
+Elemente: offers = tree.xpath('//li[contains(@class, "media")]')
+
+Link Text: offers[0].find(".//span").text
+Link zum Angebot: offers[0].find_class('info-1 w-brk ln-2')[0].attrib['href']
+Bild URL: offers[0].find_class('image media-object')[0].attrib['src']
