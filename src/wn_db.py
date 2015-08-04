@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import UniqueConstraint
 
 from datetime import datetime
+from os.path import expanduser
 
 
 Base = declarative_base()
@@ -41,6 +42,7 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True, nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     query_period = Column(Integer, nullable=False)
+    query_deviation = Column(Integer, default=0)
     url_id = Column(Integer, ForeignKey('urls.id'), nullable=False)
     last_query = Column(DateTime)
 
@@ -71,7 +73,7 @@ class WNDB(object):
 
 
 def main():
-    db = WNDB(path='/tmp/wn.sqlite')
+    db = WNDB(path=expanduser('~/wn.sqlite'))
     session = db.getSession()
     telegram_user = User(first_name="Some", last_name="One")
     session.add(telegram_user)
