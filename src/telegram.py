@@ -11,7 +11,7 @@ def cb_contact_list(s, cl):
     for p in cl:
         username = p.first_name + " " + p.last_name
         peers[username] = p
-    scheduler.setPeers(peers)
+    telegram.setPeers(peers)
 
 
 def cb_dialog_list(success, dialog_list):
@@ -19,7 +19,7 @@ def cb_dialog_list(success, dialog_list):
     for dialog in dialog_list:
         if dialog['peer'].type == tgl.PEER_CHAT:
             dialogs[dialog['peer'].name] = dialog['peer']
-    scheduler.setDialogs(dialogs)
+    telegram.setDialogs(dialogs)
 
 
 def cb_user_update(peer, what_changed):
@@ -38,18 +38,54 @@ def cb_binlog_end():
     pass
 
 def cb_on_our_id(our_id):
-    global id
-    id = our_id
+    telegram.setId(our_id)
 
 def cb_on_msg_receive(msg):
-    if id is None or msg.src.id == id:
+    if not telegram.isInitialized():
+        msg.src.send_msg("Sorry, bot not initialized yet. ")
         return
 
-    if not scheduler.isInitialized():
-        msg.src.send_msg("Sorry, scheduler not initialized yet. ")
+    if msg.src.id == telegram.getId():
         return
 
     interpreter.interpret(msg.src, msg.text.split(' '))
+
+
+class Telegram(object):
+    def __init__(self):
+        super().__init__()
+        self.__id = None
+        self.__peers = None
+        self.__dialogs = None
+
+    def isInitialized(self):
+        return self.__id is not None and self.__peers is not None and self.__dialogs is not None
+
+    def setId(self, our_id):
+        self.__id = our_id
+
+    def getId(self):
+        return self.__id
+
+    def setPeers(self, peers):
+        self.__peers = peers
+
+    def setDialogs(self, dialogs):
+        self.__dialogs = dialogs
+
+    def send_msg(self, first_name, last_name, msg):
+        peer_name = first_name + " " + last_name
+        if peer_name in self.__peers:
+            self.__peers[peer_name].send_msg(msg, preview=True)
+        else:
+            self.__logger.error("Peer " + peer_name + " cannot be found. Please add it to your contact list!")
+
+    def send_grpmsg(self, first_name, last_name, msg, grp_prefix='Offers'):
+        dialog_name = grp_prefix + '_' + first_name + '_' + last_name
+        if dialog_name in self.__dialogs:
+            self.__dialogs[dialog_name].send_msg(msg, preview=True)
+        else:
+            self.__logger.error("Dialog " + dialog_name + " cannot be found. Please create it!")
 
 
 def main():
@@ -63,8 +99,8 @@ def main():
     tgl.set_on_our_id(cb_on_our_id)
     tgl.set_on_msg_receive(cb_on_msg_receive)
 
-id = None
+telegram = Telegram()
 wndb = WNDB(path=expanduser('~/wn.sqlite'))
-scheduler = Scheduler(dbsession=wndb.getSession())
+scheduler = Scheduler(telegram, dbsession=wndb.getSession())
 interpreter = Interpreter(scheduler, wndb.getSession())
 main()
