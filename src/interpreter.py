@@ -1,3 +1,5 @@
+
+
 class Interpreter(object):
     def __init__(self, scheduler, dbsession):
         super().__init__()
@@ -13,12 +15,13 @@ class Interpreter(object):
             return
         peer.send_msg('Command not understood.')
 
+
 class Command(object):
     def execute(self, scheduler, dbsession, peer, arguments):
         peer.send_msg('Command not implemented')
 
-class CommandList(Command):
 
+class CommandList(Command):
     def execute(self, scheduler, dbsession, peer, arguments):
         peer.send_msg('Listing subscriptions ...')
 
