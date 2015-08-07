@@ -38,10 +38,15 @@ class WHCrawl(object):
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.1 Safari/537.36'
                   ]
 
+    proxiesDict = {
+                   "http"  : 'http://localhost:8118',
+                   "https" : 'http://localhost:8118'
+                   }
+
     def __init__(self, url):
         super().__init__()
         httpHeaders = {'User-Agent': random.choice(WHCrawl.userAgents)}
-        page = requests.get(url, headers=httpHeaders)
+        page = requests.get(url, headers=httpHeaders, proxies=WHCrawl.proxiesDict)
         tree = html.fromstring(page.text)
         elements = tree.xpath('//li[contains(@class, "media")]')
         self.__offers = []
@@ -54,7 +59,7 @@ class WHCrawl(object):
 
 def main():
     url = 'http://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?WORKSHOPEQUIPMENT_DETAIL=3&areaId=3&CATEGORY%2FMAINCATEGORY=8210&CATEGORY%2FSUBCATEGORY=8329&ISPRIVATE=1&PRICE_FROM=0&PRICE_TO=300'
-    page = requests.get(url)
+    page = requests.get(url, proxies=WHCrawl.proxiesDict)
     tree = html.fromstring(page.text)
     offers = tree.xpath('//li[contains(@class, "media")]')
     for offer in offers:
