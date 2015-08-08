@@ -46,6 +46,78 @@ class CommandHelp(Command):
     def help(self):
         return 'help ... information about available commands'
 
+
+class CommandSubscriptionBase(Command):
+
+    def __queryUserDbType(self, dbsession, peer):
+        return dbsession.query(User).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name);
+
+    def _userExists(self, dbsession, peer):
+        if self.__queryUserDbType(dbsession, peer).count() > 0:
+            return True
+        peer.send_msg('Sorry, you need to be a registered user to perform this operation')
+        return False
+
+    def _queryUser(self, dbsession, peer):
+        return self.__queryUserDbType(dbsession, peer).first()
+
+    def _subscriptionExists(self, dbsession, peer, urlLocation):
+        return dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Url.location == urlLocation).count() > 0
+
+
+class CommandSubscribe(CommandSubscriptionBase):
+    def execute(self, scheduler, dbsession, peer, arguments):
+        if not len(arguments) == 2:
+            peer.send_msg('Wrong number of arguments.')
+            return
+
+        if not self._userExists(dbsession, peer):
+            return
+
+        if self._subscriptionExists(dbsession, peer, arguments[0]):
+            peer.send_msg('You are already subscribed to this URL.')
+            return
+
+        try:
+            # add URL
+            url = Url(location=arguments[0])
+            dbsession.add(url)
+            dbsession.flush()
+
+            # add Subscription of user to URL
+            subscription = Subscription(user_id=self._queryUser(dbsession, peer).id, url_id=url.id, query_period=int(arguments[1]))
+            dbsession.add(subscription)
+            dbsession.commit()
+            peer.send_msg('URL added successfully.')
+        except:
+            peer.send_msg('Could not add URL.')
+
+    def help(self):
+        return 'subscribe <URL> <QueryPeriod>'
+
+
+class CommandUnsubscribe(CommandSubscriptionBase):
+    def execute(self, scheduler, dbsession, peer, arguments):
+        if not len(arguments) == 1:
+            peer.send_msg('Wrong number of arguments.')
+            return
+
+        if not self._userExists(dbsession, peer):
+            return
+
+        if not self._subscriptionExists(dbsession, peer, arguments[1]):
+            peer.send_msg('You are not subscribed to this URL')
+            return
+
+        # remove subscription
+        # check whether URL can be removed as well (optional)
+        peer.send_msg('Subscription removed successfully.')
+
+    def help(self):
+        return 'unsubscribe <URL>'
+
 commands = {}
 commands['list'] = CommandList()
 commands['help'] = CommandHelp()
+commands['subscribe'] = CommandSubscribe()
+commands['unsubscribe'] = CommandUnsubscribe()
