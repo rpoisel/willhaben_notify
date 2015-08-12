@@ -8,9 +8,9 @@ import tgl
 
 def cb_contact_list(s, cl):
     peers = {}
-    for p in cl:
-        username = p.first_name + " " + p.last_name
-        peers[username] = p
+    for peer in cl:
+        username = peer.first_name + " " + peer.last_name
+        peers[username] = peer
     telegram.setPeers(peers)
 
 
@@ -55,6 +55,7 @@ class Telegram(object):
     def __init__(self):
         super().__init__()
         self.__id = None
+        self.__peer = None
         self.__peers = None
         self.__dialogs = None
 
@@ -69,6 +70,10 @@ class Telegram(object):
 
     def setPeers(self, peers):
         self.__peers = peers
+        for key, peer in self.__peers.items():
+            if peer.id == self.__id:
+                self.__peer = peer
+                return
 
     def setDialogs(self, dialogs):
         self.__dialogs = dialogs
@@ -79,6 +84,9 @@ class Telegram(object):
             self.__peers[peer_name].send_msg(msg, preview=True)
         else:
             self.__logger.error("Peer " + peer_name + " cannot be found. Please add it to your contact list!")
+
+    def send_self_msg(self, msg):
+        self.__peer.send_msg(msg, preview=True)
 
     def send_grpmsg(self, first_name, last_name, msg, grp_prefix='Offers'):
         dialog_name = grp_prefix + '_' + first_name + '_' + last_name

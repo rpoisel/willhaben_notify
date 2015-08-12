@@ -1,10 +1,11 @@
 import random
+import re
 
 import requests
 from lxml import html
 
 
-class Offer(object):
+class WHItem(object):
 
     def __init__(self, element):
         super().__init__()
@@ -25,7 +26,7 @@ class Offer(object):
         return self.__text + "@" + self.__url + "<" + self.__imgUrl + ">"
 
 
-class WHCrawl(object):
+class CrawlerBase(object):
 
     userAgents = [
                   'Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0',
@@ -45,28 +46,78 @@ class WHCrawl(object):
 
     def __init__(self, url):
         super().__init__()
-        httpHeaders = {'User-Agent': random.choice(WHCrawl.userAgents)}
-        page = requests.get(url, headers=httpHeaders, proxies=WHCrawl.proxiesDict)
-        tree = html.fromstring(page.text)
-        elements = tree.xpath('//li[contains(@class, "media")]')
-        self.__offers = []
-        for element in elements:
-            self.__offers.append(Offer(element))
+        self._url = url
 
-    def getOffers(self):
-        return self.__offers
+    def __makeRequest(self):
+        httpHeaders = {'User-Agent': random.choice(CrawlerBase.userAgents)}
+        return requests.get(self._url, headers=httpHeaders, proxies=CrawlerBase.proxiesDict).text
+
+    def __getElements(self, pageSource):
+        tree = html.fromstring(pageSource)
+        return tree.xpath(self._getElementsXpath())
+
+    def _getElementsXpath(self):
+        raise Exception('Not implemented')
+
+    def _getItemClass(self):
+        raise Exception('Not implemented')
+
+    def crawl(self):
+        items = []
+        pageSource = self.__makeRequest()
+        elements = self.__getElements(pageSource)
+        ItemClass = self._getItemClass()
+        for element in elements:
+            items.append(ItemClass(element))
+        return items
+
+
+class WHCrawler(CrawlerBase):
+
+    def __init__(self, url):
+        super().__init__(url)
+
+    def _getElementsXpath(self):
+        return '//li[contains(@class, "media")]'
+
+    def _getItemClass(self):
+        return WHItem
+
+
+class WHCrawlFactory(object):
+
+    CRAWLERS = { 'www.willhaben.at' : WHCrawler }
+    FQDN_REGEX = re.compile("http://([^/]+)")
+
+    @staticmethod
+    def crawlerExists(url):
+        return WHCrawlFactory.__getBaseUrl(url) in WHCrawlFactory.CRAWLERS
+
+    @staticmethod
+    def getCrawler(url):
+        if not WHCrawlFactory.crawlerExists(url):
+            raise Exception("Unsupported URL")
+        return WHCrawlFactory.CRAWLERS[WHCrawlFactory.__getBaseUrl(url)](url)
+
+    @staticmethod
+    def __getBaseUrl(url):
+        match = WHCrawlFactory.FQDN_REGEX.search(url)
+        if match is None:
+            raise Exception('Invalid URL given.')
+        return match.group(1)
 
 
 def main():
     url = 'http://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?WORKSHOPEQUIPMENT_DETAIL=3&areaId=3&CATEGORY%2FMAINCATEGORY=8210&CATEGORY%2FSUBCATEGORY=8329&ISPRIVATE=1&PRICE_FROM=0&PRICE_TO=300'
-    page = requests.get(url, proxies=WHCrawl.proxiesDict)
-    tree = html.fromstring(page.text)
-    offers = tree.xpath('//li[contains(@class, "media")]')
-    for offer in offers:
-        offer_text = offer.find(".//span").text
-        offer_url = offer.find_class('info-1 w-brk ln-2')[0].attrib['href']
-        offer_img = offer.find_class('image media-object')[0].attrib['src']
-        print('"' + offer_text.strip() + '" @ http://www.willhaben.at' + offer_url + ", " + offer_img)
+    try:
+        if not WHCrawlFactory.crawlerExists(url):
+            print('Crawler does not exist.')
+            return
+        crawler = WHCrawlFactory.getCrawler(url)
+        for offer in crawler.crawl():
+            print('"' + offer.getText() + '" @ ' + offer.getUrl() + ", " + offer.getImgUrl())
+    except Exception as err:
+        print("Error: {0}".format(err))
 
 if __name__ == "__main__":
     main()

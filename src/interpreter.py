@@ -1,4 +1,5 @@
 from wn_db import User, Subscription, Url
+from crawl import WHCrawlFactory
 
 
 class Interpreter(object):
@@ -62,8 +63,14 @@ class CommandSubscriptionBase(Command):
         return self.__queryUserDbType(dbsession, peer).first()
 
     def _subscriptionExists(self, dbsession, peer, urlLocation):
-        return dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Url.location == urlLocation).count() > 0
+        return self.__querySubscriptionDbType(dbsession, peer, urlLocation).count() > 0
 
+    def __querySubscriptionDbType(self, dbsession, peer, urlLocation):
+        return dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Url.location == urlLocation)
+
+    def _removeSubscription(self, dbsession, peer, urlLocation):
+        self.__querySubscriptionDbType(dbsession, peer, urlLocation).delete()
+        dbsession.commit()
 
 class CommandSubscribe(CommandSubscriptionBase):
     def execute(self, scheduler, dbsession, peer, arguments):
@@ -79,6 +86,10 @@ class CommandSubscribe(CommandSubscriptionBase):
             return
 
         try:
+            if not WHCrawlFactory.crawlerExists(arguments[0]):
+                peer.send_msg("Could not find a suitable crawler for the site provided!")
+                return
+
             # add URL
             url = Url(location=arguments[0])
             dbsession.add(url)
@@ -89,8 +100,8 @@ class CommandSubscribe(CommandSubscriptionBase):
             dbsession.add(subscription)
             dbsession.commit()
             peer.send_msg('URL added successfully.')
-        except:
-            peer.send_msg('Could not add URL.')
+        except Exception as exc:
+            peer.send_msg("Could not add URL: {0}".format(exc))
 
     def help(self):
         return 'subscribe <URL> <QueryPeriod>'
@@ -105,11 +116,15 @@ class CommandUnsubscribe(CommandSubscriptionBase):
         if not self._userExists(dbsession, peer):
             return
 
-        if not self._subscriptionExists(dbsession, peer, arguments[1]):
+        if not self._subscriptionExists(dbsession, peer, arguments[0]):
             peer.send_msg('You are not subscribed to this URL')
             return
 
         # remove subscription
+        try:
+            self._removeSubscription(dbsession , peer, arguments[0])
+        except:
+            peer.send_msg("Could not unsubscribe from URL.")
         # check whether URL can be removed as well (optional)
         peer.send_msg('Subscription removed successfully.')
 

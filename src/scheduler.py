@@ -3,7 +3,7 @@ import logging
 from logging.handlers import SysLogHandler
 
 from wn_db import User, Subscription, SentOffer, Url
-from crawl import WHCrawl
+from crawl import WHCrawlFactory
 
 class Scheduler(object):
     def __init__(self, telegram, dbsession):
@@ -32,15 +32,15 @@ class Scheduler(object):
             # determine which subscriptions have to be queried again
             if self.__isSubscriptionDue(now, subscription):
                 # query relevant subscription pages
-                crawl = WHCrawl(subscription_url.location)
-                self.__processOffers(crawl, self.__dbsession, user, subscription)
+                crawler = WHCrawlFactory.getCrawler(subscription_url.location)
+                self.__processOffers(crawler.crawl(), self.__dbsession, user, subscription)
                 # update last_query to now
                 subscription.last_query = now
                 self.__dbsession.commit()
 
-    def __processOffers(self, crawl, session, user, subscription):
+    def __processOffers(self, items, session, user, subscription):
         # iterate thorugh offers
-        for offer in crawl.getOffers():
+        for offer in items:
             offer_url_id = self.__createUrlIfNotExists(session, offer.getUrl())
             # determine whether offer.getUrl() has already been sent
             if self.__hasOfferNotBeenSent(session, offer_url_id):
