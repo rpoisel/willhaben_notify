@@ -5,6 +5,7 @@ from logging.handlers import SysLogHandler
 from wn_db import User, Subscription, SentOffer, Url
 from crawl import WHCrawlFactory
 
+
 class Scheduler(object):
     def __init__(self, telegram, dbsession):
         super().__init__()
@@ -69,5 +70,3 @@ class Scheduler(object):
 
     def __isSubscriptionDue(self, now, subscription):
         return subscription.last_query is None or (now - subscription.last_query).total_seconds() >= subscription.query_period
-
-

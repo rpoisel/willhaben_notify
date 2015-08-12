@@ -104,7 +104,7 @@ class CommandSubscribe(CommandSubscriptionBase):
             peer.send_msg("Could not add URL: {0}".format(exc))
 
     def help(self):
-        return 'subscribe <URL> <QueryPeriod>'
+        return 'subscribe <URL> <QueryPeriod> .. subscribe to given URL and retrieve new items every QueryPeriod seconds'
 
 
 class CommandUnsubscribe(CommandSubscriptionBase):
@@ -129,7 +129,7 @@ class CommandUnsubscribe(CommandSubscriptionBase):
         peer.send_msg('Subscription removed successfully.')
 
     def help(self):
-        return 'unsubscribe <URL>'
+        return 'unsubscribe <URL> ... unsubscribe from given URL'
 
 commands = {}
 commands['list'] = CommandList()

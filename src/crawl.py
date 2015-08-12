@@ -28,7 +28,7 @@ class WHItem(object):
 
 class CrawlerBase(object):
 
-    userAgents = [
+    USER_AGENTS = [
                   'Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0',
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:33.0) Gecko/20100101 Firefox/33.0',
                   'Mozilla/5.0 (X11; Linux i586; rv:31.0) Gecko/20100101 Firefox/31.0',
@@ -39,7 +39,7 @@ class CrawlerBase(object):
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.1 Safari/537.36'
                   ]
 
-    proxiesDict = {
+    PROXIES_DICT = {
                    "http"  : 'http://localhost:8118',
                    "https" : 'http://localhost:8118'
                    }
@@ -49,8 +49,8 @@ class CrawlerBase(object):
         self._url = url
 
     def __makeRequest(self):
-        httpHeaders = {'User-Agent': random.choice(CrawlerBase.userAgents)}
-        return requests.get(self._url, headers=httpHeaders, proxies=CrawlerBase.proxiesDict).text
+        httpHeaders = {'User-Agent': random.choice(CrawlerBase.USER_AGENTS)}
+        return requests.get(self._url, headers=httpHeaders, proxies=CrawlerBase.PROXIES_DICT).text
 
     def __getElements(self, pageSource):
         tree = html.fromstring(pageSource)
