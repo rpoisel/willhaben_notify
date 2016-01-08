@@ -7,18 +7,18 @@ from crawl import WHCrawlFactory
 
 
 class Scheduler(object):
-    def __init__(self, dbsession):
+    def __init__(self, telegram, dbsession):
         super().__init__()
         self.__logger = logging.getLogger('telegram')
         self.__logger.addHandler(SysLogHandler())
         self.__peers = None
         self.__dialogs = None
         self.__last = datetime.datetime.now()
-        self.__telegram = None
+        self.__telegram = telegram
         self.__dbsession = dbsession
 
     def tick(self):
-        if self.__telegram is not None and not self.__telegram.isInitialized():
+        if not self.__telegram.isInitialized():
             return
 
         now = datetime.datetime.now()
@@ -26,9 +26,6 @@ class Scheduler(object):
         if totalseconds >= 1:
             self.__last = now
             self.schedule(now=now)
-
-    def setTelegram(self, telegram):
-        self.__telegram = telegram
 
     def schedule(self, now):
         # iterate through subscriptions

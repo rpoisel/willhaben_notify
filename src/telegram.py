@@ -1,3 +1,9 @@
+from os.path import expanduser
+
+from wn_db import WNDB
+from scheduler import Scheduler
+from interpreter import Interpreter
+
 import tgl
 
 def cb_contact_list(s, cl):
@@ -34,15 +40,24 @@ def cb_binlog_end():
 def cb_on_our_id(our_id):
     telegram.setId(our_id)
 
+def cb_on_msg_receive(msg):
+    if not telegram.isInitialized():
+        msg.src.send_msg("Sorry, bot not initialized yet. ")
+        return
+
+    if msg.src.id == telegram.getId():
+        return
+
+    interpreter.interpret(msg.src, msg.text.split(' '))
+
 
 class Telegram(object):
-    def __init__(self, interpreter):
+    def __init__(self):
         super().__init__()
         self.__id = None
         self.__peer = None
         self.__peers = None
         self.__dialogs = None
-        self.__interpreter = interpreter
 
     def isInitialized(self):
         return self.__id is not None and self.__peers is not None and self.__dialogs is not None
@@ -80,18 +95,8 @@ class Telegram(object):
         else:
             self.__logger.error("Dialog " + dialog_name + " cannot be found. Please create it!")
 
-    def cb_on_msg_receive(self, msg):
-        if not telegram.isInitialized():
-            msg.src.send_msg("Sorry, bot not initialized yet. ")
-            return
 
-        if msg.src.id == telegram.getId():
-            return
-
-        self.__interpreter.interpret(msg.src, msg.text.split(' '))
-
-
-def setupTelegram(telegram, scheduler):
+def main():
     tgl.get_contact_list(cb_contact_list)
     tgl.get_dialog_list(cb_dialog_list)
     tgl.set_on_user_update(cb_user_update)
@@ -100,4 +105,10 @@ def setupTelegram(telegram, scheduler):
     tgl.set_on_loop(scheduler.tick)
     tgl.set_on_binlog_replay_end(cb_binlog_end)
     tgl.set_on_our_id(cb_on_our_id)
-    tgl.set_on_msg_receive(telegram.cb_on_msg_receive)
+    tgl.set_on_msg_receive(cb_on_msg_receive)
+
+telegram = Telegram()
+wndb = WNDB(path=expanduser('~/wn.sqlite'))
+scheduler = Scheduler(telegram, dbsession=wndb.getSession())
+interpreter = Interpreter(scheduler, wndb.getSession())
+main()
