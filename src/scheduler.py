@@ -1,5 +1,7 @@
+from time import sleep
 import datetime
 import logging
+from logging import StreamHandler
 from logging.handlers import SysLogHandler
 
 from wn_db import User, Subscription, SentOffer, Url
@@ -10,24 +12,27 @@ class Scheduler(object):
     def __init__(self, telegram, dbsession):
         super().__init__()
         self.__logger = logging.getLogger('telegram')
-        self.__logger.addHandler(SysLogHandler())
+        syslogHandler = StreamHandler()
+        syslogHandler.setLevel(logging.INFO)
+        self.__logger.addHandler(syslogHandler)
         self.__peers = None
         self.__dialogs = None
         self.__last = datetime.datetime.now()
         self.__telegram = telegram
         self.__dbsession = dbsession
 
-    def tick(self):
-        if not self.__telegram.isInitialized():
-            return
+    def schedule(self):
+        # TODO start scheduler thread
+        self.run()
 
+    def run(self):
+        while True:
+            self.processSubscriptions()
+            self.processUpdates()
+            sleep(1)
+
+    def processSubscriptions(self):
         now = datetime.datetime.now()
-        totalseconds = (now - self.__last).total_seconds()
-        if totalseconds >= 1:
-            self.__last = now
-            self.schedule(now=now)
-
-    def schedule(self, now):
         # iterate through subscriptions
         for user, subscription, subscription_url in self.__dbsession.query(User, Subscription, Url).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id).all():
             # determine which subscriptions have to be queried again
@@ -39,17 +44,16 @@ class Scheduler(object):
                 subscription.last_query = now
                 self.__dbsession.commit()
 
+    def processUpdates(self):
+        pass
+
     def __processOffers(self, items, session, user, subscription):
         # iterate thorugh offers
         for offer in items:
             offer_url_id = self.__createUrlIfNotExists(session, offer.getUrl())
             # determine whether offer.getUrl() has already been sent
             if self.__hasOfferNotBeenSent(session, offer_url_id):
-                # if no, send offer
-                if False:
-                    self.__telegram.send_msg(user.first_name, user.last_name, offer.getUrl())
-                else:
-                    self.__telegram.send_grpmsg(user.first_name, user.last_name, offer.getUrl())
+                self.__telegram.send_msg(user.telegram_id, offer.getUrl())
                 # and add to sent_offers
                 session.add(SentOffer(user_id=subscription.user_id, url_id=offer_url_id))
                 session.commit()

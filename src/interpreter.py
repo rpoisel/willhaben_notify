@@ -3,9 +3,8 @@ from crawl import WHCrawlFactory
 
 
 class Interpreter(object):
-    def __init__(self, scheduler, dbsession):
+    def __init__(self, dbsession):
         super().__init__()
-        self.__scheduler = scheduler
         self.__dbsession = dbsession
 
     def interpret(self, peer, tokens):
@@ -13,13 +12,13 @@ class Interpreter(object):
             peer.send_msg('No command given.')
             return
         if tokens[0] in commands:
-            commands[tokens[0]].execute(self.__scheduler, self.__dbsession, peer, tokens[1:])
+            commands[tokens[0]].execute(self.__dbsession, peer, tokens[1:])
             return
         peer.send_msg('Command not found.')
 
 
 class Command(object):
-    def execute(self, scheduler, dbsession, peer, arguments):
+    def execute(self, dbsession, peer, arguments):
         peer.send_msg('Command not implemented')
 
     def help(self):
@@ -27,7 +26,7 @@ class Command(object):
 
 
 class CommandList(Command):
-    def execute(self, scheduler, dbsession, peer, arguments):
+    def execute(self, dbsession, peer, arguments):
         subscriptions = ''
         for user, subscription, url in dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id):
             subscriptions += url.location + ' every ' + str(subscription.query_period) + ' seconds\n'
@@ -38,7 +37,7 @@ class CommandList(Command):
 
 
 class CommandHelp(Command):
-    def execute(self, scheduler, dbsession, peer, arguments):
+    def execute(self, dbsession, peer, arguments):
         helpInfo = ''
         for command in commands.values():
             helpInfo += command.help() + '\n'
@@ -73,7 +72,7 @@ class CommandSubscriptionBase(Command):
         dbsession.commit()
 
 class CommandSubscribe(CommandSubscriptionBase):
-    def execute(self, scheduler, dbsession, peer, arguments):
+    def execute(self, dbsession, peer, arguments):
         if not len(arguments) == 2:
             peer.send_msg('Wrong number of arguments.')
             return
@@ -108,7 +107,7 @@ class CommandSubscribe(CommandSubscriptionBase):
 
 
 class CommandUnsubscribe(CommandSubscriptionBase):
-    def execute(self, scheduler, dbsession, peer, arguments):
+    def execute(self, dbsession, peer, arguments):
         if not len(arguments) == 1:
             peer.send_msg('Wrong number of arguments.')
             return

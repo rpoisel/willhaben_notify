@@ -15,14 +15,14 @@ Base = declarative_base()
 class User(Base):
 
     __tablename__ = 'users'
-    __table_args__ = (UniqueConstraint('first_name', 'last_name'),)
 
     id = Column(Integer, primary_key=True, nullable=False)
+    telegram_id = Column(Integer)
     first_name = Column(String)
     last_name = Column(String)
 
     def __repr__(self):
-        return "<User(first_name='%s', last_name='%s')>" % (self.first_name, self.last_name)
+        return "<User(first_name='%s', last_name='%s', telegram_id='%d')>" % (self.first_name, self.last_name, self.telegram_id)
 
 
 class Url(Base):
@@ -75,7 +75,7 @@ class WNDB(object):
 def main():
     db = WNDB(path=expanduser('~/wn.sqlite'))
     session = db.getSession()
-    telegram_user = User(first_name="Some", last_name="One")
+    telegram_user = User(first_name="Some", last_name="One", telegram_id = 9999)
     session.add(telegram_user)
     welds = Url(
         location='http://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?ELECTROTOOLS_DETAIL=15&areaId=3&CATEGORY%2FMAINCATEGORY=8210&CATEGORY%2FSUBCATEGORY=8326&PRICE_FROM=0&PRICE_TO=300')
