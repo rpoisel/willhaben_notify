@@ -3,9 +3,9 @@ from crawl import WHCrawlFactory
 
 
 class Interpreter(object):
-    def __init__(self, dbsession):
+    def __init__(self, db):
         super().__init__()
-        self.__dbsession = dbsession
+        self.__dbsession = db.getSession()
 
     def interpret(self, peer, tokens):
         if len(tokens) < 1:
@@ -15,6 +15,9 @@ class Interpreter(object):
             commands[tokens[0]].execute(self.__dbsession, peer, tokens[1:])
             return
         peer.send_msg('Command not found.')
+
+    def shutdown(self):
+        self.__dbsession.close()
 
 
 class Command(object):

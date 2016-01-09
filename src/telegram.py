@@ -22,3 +22,6 @@ class Telegram(object):
 
     def getUpdates(self):
         self.__interpreter.interpret(msg.src, msg.text.split(' '))
+
+    def shutdown(self):
+        self.__interpreter.shutdown()
