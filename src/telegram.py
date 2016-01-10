@@ -16,11 +16,22 @@ class Telegram(object):
         self.__bot = TelegramBot(config['Telegram']['token'])
         self.__logger.warning("Bot details: " + str(self.__bot.get_me().wait()))
 
+        self.__updateOffset = None
+
     def send_msg(self, telegram_id, text):
         self.__bot.send_message(telegram_id, text).wait()
 
-    def getUpdates(self):
-        self.__interpreter.interpret(msg.src, msg.text.split(' '))
+    def getUpdates(self, dbSession):
+        updates = None
+        if self.__updateOffset is not None:
+            updates = self.__bot.get_updates(offset=self.__updateOffset + 1).wait()
+        else:
+            updates = self.__bot.get_updates().wait()
+
+        for update in updates:
+            self.__logger.warning(str(update.message.sender) + ": " + update.message.text)
+            self.__updateOffset = update.update_id
+            self.__interpreter.interpret(dbSession, self, update.message.sender, update.message.text.split(' '))
 
     def shutdown(self):
-        self.__interpreter.shutdown()
+        pass

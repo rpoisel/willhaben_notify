@@ -87,7 +87,7 @@ class WHCrawler(CrawlerBase):
 class WHCrawlFactory(object):
 
     CRAWLERS = { 'www.willhaben.at' : WHCrawler }
-    FQDN_REGEX = re.compile("http://([^/]+)")
+    FQDN_REGEX = re.compile("https?://([^/]+)")
 
     @staticmethod
     def crawlerExists(url):

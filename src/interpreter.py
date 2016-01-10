@@ -3,138 +3,140 @@ from crawl import WHCrawlFactory
 
 
 class Interpreter(object):
-    def __init__(self, db):
+    def __init__(self):
         super().__init__()
-        self.__dbsession = db.getSession()
 
-    def interpret(self, peer, tokens):
+    def interpret(self, dbSession, telegram, peer, tokens):
         if len(tokens) < 1:
-            peer.send_msg('No command given.')
+            telegram.send_msg(peer.id, 'No command given.')
             return
         if tokens[0] in commands:
-            commands[tokens[0]].execute(self.__dbsession, peer, tokens[1:])
+            commands[tokens[0]].execute(dbSession, telegram, peer, tokens[1:])
             return
-        peer.send_msg('Command not found.')
+        telegram.send_msg(peer.id, 'Command not found.')
 
     def shutdown(self):
-        self.__dbsession.close()
+        pass
 
 
 class Command(object):
-    def execute(self, dbsession, peer, arguments):
-        peer.send_msg('Command not implemented')
+    def execute(self, dbSession, telegram, peer, arguments):
+        telegram.send_msg(peer.id, 'Command not implemented')
 
     def help(self):
         return 'No help available'
 
 
 class CommandList(Command):
-    def execute(self, dbsession, peer, arguments):
+    def execute(self, dbSession, telegram, peer, arguments):
         subscriptions = ''
-        for user, subscription, url in dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id):
+        for user, subscription, url in dbSession.query(User, Subscription, Url).filter(User.telegram_id == peer.id).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id):
             subscriptions += url.location + ' every ' + str(subscription.query_period) + ' seconds\n'
-        peer.send_msg(subscriptions)
+        telegram.send_msg(peer.id, subscriptions)
 
     def help(self):
-        return 'list ... list subscriptions this peer is subscribed to'
+        return '/list ... list subscriptions this peer is subscribed to'
 
 
 class CommandHelp(Command):
-    def execute(self, dbsession, peer, arguments):
+    def execute(self, dbSession, telegram, peer, arguments):
         helpInfo = ''
         for command in commands.values():
             helpInfo += command.help() + '\n'
-        peer.send_msg(helpInfo)
+        telegram.send_msg(peer.id, helpInfo)
 
     def help(self):
-        return 'help ... information about available commands'
+        return '/help ... information about available commands'
 
 
 class CommandSubscriptionBase(Command):
 
-    def __queryUserDbType(self, dbsession, peer):
-        return dbsession.query(User).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name);
+    def __queryUserDbType(self, dbSession, peer):
+        return dbSession.query(User).filter(User.telegram_id == peer.id)
 
-    def _userExists(self, dbsession, peer):
-        if self.__queryUserDbType(dbsession, peer).count() > 0:
+    def _userExists(self, dbSession, telegram, peer):
+        if self.__queryUserDbType(dbSession, peer).count() > 0:
             return True
-        peer.send_msg('Sorry, you need to be a registered user to perform this operation')
+        telegram.send_msg(peer.id, 'Sorry, you need to be a registered user to perform this operation')
         return False
 
-    def _queryUser(self, dbsession, peer):
-        return self.__queryUserDbType(dbsession, peer).first()
+    def _queryUser(self, dbSession, peer):
+        return self.__queryUserDbType(dbSession, peer).first()
 
-    def _subscriptionExists(self, dbsession, peer, urlLocation):
-        return self.__querySubscriptionDbType(dbsession, peer, urlLocation).count() > 0
+    def _subscriptionExists(self, dbSession, telegram, peer, urlLocation):
+        return self.__querySubscriptionDbType(dbSession, telegram, peer, urlLocation).count() > 0
 
-    def __querySubscriptionDbType(self, dbsession, peer, urlLocation):
-        return dbsession.query(User, Subscription, Url).filter(User.first_name == peer.first_name).filter(User.last_name == peer.last_name).filter(User.id == Subscription.user_id).filter(Url.location == urlLocation)
+    def __querySubscriptionDbType(self, dbSession, telegram, peer, urlLocation):
+        return dbSession.query(User, Subscription, Url).filter(User.telegram_id == peer.id).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id).filter(Url.location == urlLocation)
 
-    def _removeSubscription(self, dbsession, peer, urlLocation):
-        self.__querySubscriptionDbType(dbsession, peer, urlLocation).delete()
-        dbsession.commit()
+    def _removeSubscription(self, dbSession, telegram, peer, urlLocation):
+        subscriptions = self.__querySubscriptionDbType(dbSession, telegram, peer, urlLocation).one()
+        dbSession.delete(subscriptions.Subscription)
+        dbSession.delete(subscriptions.Url)
+        dbSession.commit()
 
 class CommandSubscribe(CommandSubscriptionBase):
-    def execute(self, dbsession, peer, arguments):
+    def execute(self, dbSession, telegram, peer, arguments):
         if not len(arguments) == 2:
-            peer.send_msg('Wrong number of arguments.')
+            telegram.send_msg(peer.id, 'Wrong number of arguments.')
             return
 
-        if not self._userExists(dbsession, peer):
+        if not self._userExists(dbSession, telegram, peer):
             return
 
-        if self._subscriptionExists(dbsession, peer, arguments[0]):
-            peer.send_msg('You are already subscribed to this URL.')
+        if self._subscriptionExists(dbSession, telegram, peer, arguments[0]):
+            telegram.send_msg(peer.id, 'You are already subscribed to this URL.')
             return
 
         try:
             if not WHCrawlFactory.crawlerExists(arguments[0]):
-                peer.send_msg("Could not find a suitable crawler for the site provided!")
+                telegram.send_msg(peer.id, "Could not find a suitable crawler for the site provided!")
                 return
 
             # add URL
             url = Url(location=arguments[0])
-            dbsession.add(url)
-            dbsession.flush()
+            dbSession.add(url)
+            dbSession.flush()
 
             # add Subscription of user to URL
-            subscription = Subscription(user_id=self._queryUser(dbsession, peer).id, url_id=url.id, query_period=int(arguments[1]))
-            dbsession.add(subscription)
-            dbsession.commit()
-            peer.send_msg('URL added successfully.')
+            subscription = Subscription(user_id=self._queryUser(dbSession, peer).id, url_id=url.id, query_period=int(arguments[1]))
+            dbSession.add(subscription)
+            dbSession.commit()
+            telegram.send_msg(peer.id, 'URL added successfully.')
         except Exception as exc:
-            peer.send_msg("Could not add URL: {0}".format(exc))
+            telegram.send_msg(peer.id, "Could not add URL: {0}".format(exc))
 
     def help(self):
-        return 'subscribe <URL> <QueryPeriod> .. subscribe to given URL and retrieve new items every QueryPeriod seconds'
+        return '/subscribe <URL> <QueryPeriod> .. subscribe to given URL and retrieve new items every QueryPeriod seconds'
 
 
 class CommandUnsubscribe(CommandSubscriptionBase):
-    def execute(self, dbsession, peer, arguments):
+    def execute(self, dbSession, telegram, peer, arguments):
         if not len(arguments) == 1:
-            peer.send_msg('Wrong number of arguments.')
+            telegram.send_msg(peer.id, 'Wrong number of arguments.')
             return
 
-        if not self._userExists(dbsession, peer):
+        if not self._userExists(dbSession, telegram, peer):
             return
 
-        if not self._subscriptionExists(dbsession, peer, arguments[0]):
-            peer.send_msg('You are not subscribed to this URL')
+        if not self._subscriptionExists(dbSession, telegram, peer, arguments[0]):
+            telegram.send_msg(peer.id, 'You are not subscribed to this URL')
             return
 
         # remove subscription
         try:
-            self._removeSubscription(dbsession , peer, arguments[0])
-        except:
-            peer.send_msg("Could not unsubscribe from URL.")
+            self._removeSubscription(dbSession, telegram, peer, arguments[0])
+        except Exception as exc:
+            telegram.send_msg(peer.id, "Could not unsubscribe from URL: " + str(exc))
+            return
         # check whether URL can be removed as well (optional)
-        peer.send_msg('Subscription removed successfully.')
+        telegram.send_msg(peer.id, 'Subscription removed successfully.')
 
     def help(self):
-        return 'unsubscribe <URL> ... unsubscribe from given URL'
+        return '/unsubscribe <URL> ... unsubscribe from given URL'
 
 commands = {}
-commands['list'] = CommandList()
-commands['help'] = CommandHelp()
-commands['subscribe'] = CommandSubscribe()
-commands['unsubscribe'] = CommandUnsubscribe()
+commands['/list'] = CommandList()
+commands['/help'] = CommandHelp()
+commands['/subscribe'] = CommandSubscribe()
+commands['/unsubscribe'] = CommandUnsubscribe()

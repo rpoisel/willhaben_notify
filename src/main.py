@@ -13,7 +13,7 @@ def main():
     config = ConfigParser()
     config.read(expanduser("~/.wn.conf"))
     wndb = WNDB(path=expanduser(config['Database']['path']))
-    interpreter = Interpreter(wndb)
+    interpreter = Interpreter()
     telegram = Telegram(config, interpreter)
     scheduler = Scheduler(wndb, telegram)
 
@@ -27,9 +27,10 @@ def main():
         except (KeyboardInterrupt, SystemExit):
             break
 
-    telegram.shutdown()
     scheduler.shutdown()
     thread.join()
+    telegram.shutdown()
+    interpreter.shutdown()
 
 if __name__ == "__main__":
     main()

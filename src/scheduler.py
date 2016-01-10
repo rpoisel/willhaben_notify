@@ -27,30 +27,30 @@ class Scheduler(object):
         self.__event.clear()
 
     def run(self):
-        dbsession = self.__db.getSession()
+        dbSession = self.__db.getSession()
 
         while self.__event.is_set():
-            self.processSubscriptions(dbsession)
-            self.processUpdates(dbsession)
+            self.processSubscriptions(dbSession)
+            self.processUpdates(dbSession)
             sleep(1)
 
-        dbsession.close()
+        dbSession.close()
 
-    def processSubscriptions(self, dbsession):
+    def processSubscriptions(self, dbSession):
         now = datetime.datetime.now()
         # iterate through subscriptions
-        for user, subscription, subscription_url in dbsession.query(User, Subscription, Url).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id).all():
+        for user, subscription, subscription_url in dbSession.query(User, Subscription, Url).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id).all():
             # determine which subscriptions have to be queried again
             if self.__isSubscriptionDue(now, subscription):
                 # query relevant subscription pages
                 crawler = WHCrawlFactory.getCrawler(subscription_url.location)
-                self.__processOffers(crawler.crawl(), dbsession, user, subscription)
+                self.__processOffers(crawler.crawl(), dbSession, user, subscription)
                 # update last_query to now
                 subscription.last_query = now
-                dbsession.commit()
+                dbSession.commit()
 
-    def processUpdates(self, dbsession):
-        pass
+    def processUpdates(self, dbSession):
+        self.__telegram.getUpdates(dbSession)
 
     def __processOffers(self, items, session, user, subscription):
         # iterate thorugh offers
