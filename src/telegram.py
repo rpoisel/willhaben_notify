@@ -5,7 +5,7 @@ from twx.botapi import TelegramBot
 
 
 class Telegram(object):
-    def __init__(self, interpreter):
+    def __init__(self, config, interpreter):
         super().__init__()
         self.__interpreter = interpreter
         self.__logger = logging.getLogger('telegram')
@@ -13,8 +13,7 @@ class Telegram(object):
         logHandler.setLevel(logging.DEBUG)
         self.__logger.addHandler(logHandler)
 
-        # TODO read token from file
-        self.__bot = TelegramBot('your token here')
+        self.__bot = TelegramBot(config['Telegram']['token'])
         self.__logger.warning("Bot details: " + str(self.__bot.get_me().wait()))
 
     def send_msg(self, telegram_id, text):

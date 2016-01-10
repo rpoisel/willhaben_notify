@@ -47,7 +47,7 @@ class Scheduler(object):
                 self.__processOffers(crawler.crawl(), dbsession, user, subscription)
                 # update last_query to now
                 subscription.last_query = now
-                self.__dbsession.commit()
+                dbsession.commit()
 
     def processUpdates(self, dbsession):
         pass
