@@ -26,13 +26,58 @@ class Command(object):
     def help(self):
         return 'No help available'
 
+    def __queryUserDbType(self, dbSession, peer, known):
+        return dbSession.query(User).filter(User.telegram_id == peer.id).filter(User.known == known)
+
+    def _knownUserExists(self, dbSession, peer):
+        return self.__queryUserDbType(dbSession, peer, True).count() > 0
+
+    def _unknownUserExists(self, dbSession, peer):
+        return self.__queryUserDbType(dbSession, peer, False).count() > 0
+
+    def _isUserAuthorized(self, dbSession, peer):
+        if self._knownUserExists(dbSession, peer):
+            return True
+        if not self._unknownUserExists(dbSession, peer):
+            self._addUnknownUser(dbSession, peer)
+        return False
+
+    def _queryUser(self, dbSession, peer):
+        return self.__queryUserDbType(dbSession, peer, True).first()
+
+    def _addUnknownUser(self, dbSession, peer):
+        newUser = User(telegram_id=peer.id, first_name=peer.first_name, last_name=peer.last_name, known=False)
+        dbSession.add(newUser)
+        dbSession.commit()
+
+    def __queryUrlDbType(self, dbSession, url_location):
+        return dbSession.query(Url).filter(Url.location == url_location)
+
+    def __urlAlreadyExists(self, dbSession, url_location):
+        return self.__queryUrlDbType(dbSession, url_location).count() > 0
+
+    def _makeSureUrlExists(self, dbSession, url_location):
+        if not self.__urlAlreadyExists(dbSession, url_location):
+            url = Url(location=url_location)
+            dbSession.add(url)
+            dbSession.flush()
+            return url.id
+        return self.__queryUrlDbType(dbSession, url_location).one().id
+
 
 class CommandList(Command):
     def execute(self, dbSession, telegram, peer, arguments):
+        if not self._isUserAuthorized(dbSession, peer):
+            telegram.send_msg(peer.id, 'Not authorized.')
+            return
+
         subscriptions = ''
         for user, subscription, url in dbSession.query(User, Subscription, Url).filter(User.telegram_id == peer.id).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id):
             subscriptions += url.location + ' every ' + str(subscription.query_period) + ' seconds\n'
-        telegram.send_msg(peer.id, subscriptions)
+        if len(subscriptions) > 0:
+            telegram.send_msg(peer.id, subscriptions)
+        else:
+            telegram.send_msg(peer.id, 'No subscriptions.')
 
     def help(self):
         return '/list ... list subscriptions this peer is subscribed to'
@@ -50,18 +95,6 @@ class CommandHelp(Command):
 
 
 class CommandSubscriptionBase(Command):
-
-    def __queryUserDbType(self, dbSession, peer):
-        return dbSession.query(User).filter(User.telegram_id == peer.id)
-
-    def _userExists(self, dbSession, telegram, peer):
-        if self.__queryUserDbType(dbSession, peer).count() > 0:
-            return True
-        telegram.send_msg(peer.id, 'Sorry, you need to be a registered user to perform this operation')
-        return False
-
-    def _queryUser(self, dbSession, peer):
-        return self.__queryUserDbType(dbSession, peer).first()
 
     def _subscriptionExists(self, dbSession, telegram, peer, urlLocation):
         return self.__querySubscriptionDbType(dbSession, telegram, peer, urlLocation).count() > 0
@@ -81,7 +114,8 @@ class CommandSubscribe(CommandSubscriptionBase):
             telegram.send_msg(peer.id, 'Wrong number of arguments.')
             return
 
-        if not self._userExists(dbSession, telegram, peer):
+        if not self._isUserAuthorized(dbSession, peer):
+            telegram.send_msg(peer.id, 'Not authorized.')
             return
 
         if self._subscriptionExists(dbSession, telegram, peer, arguments[0]):
@@ -94,17 +128,16 @@ class CommandSubscribe(CommandSubscriptionBase):
                 return
 
             # add URL
-            url = Url(location=arguments[0])
-            dbSession.add(url)
-            dbSession.flush()
+            urlId = self._makeSureUrlExists(dbSession, arguments[0])
 
             # add Subscription of user to URL
-            subscription = Subscription(user_id=self._queryUser(dbSession, peer).id, url_id=url.id, query_period=int(arguments[1]))
+            subscription = Subscription(user_id=self._queryUser(dbSession, peer).id, url_id=urlId, query_period=int(arguments[1]))
             dbSession.add(subscription)
             dbSession.commit()
             telegram.send_msg(peer.id, 'URL added successfully.')
         except Exception as exc:
             telegram.send_msg(peer.id, "Could not add URL: {0}".format(exc))
+            dbSession.rollback()
 
     def help(self):
         return '/subscribe <URL> <QueryPeriod> .. subscribe to given URL and retrieve new items every QueryPeriod seconds'
@@ -116,7 +149,8 @@ class CommandUnsubscribe(CommandSubscriptionBase):
             telegram.send_msg(peer.id, 'Wrong number of arguments.')
             return
 
-        if not self._userExists(dbSession, telegram, peer):
+        if not self._isUserAuthorized(dbSession, peer):
+            telegram.send_msg(peer.id, 'Not authorized.')
             return
 
         if not self._subscriptionExists(dbSession, telegram, peer, arguments[0]):

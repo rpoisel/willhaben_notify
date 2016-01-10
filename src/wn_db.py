@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Boolean, Integer, String, DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -20,9 +20,10 @@ class User(Base):
     telegram_id = Column(Integer)
     first_name = Column(String)
     last_name = Column(String)
+    known = Column(Boolean, default=False)
 
     def __repr__(self):
-        return "<User(first_name='%s', last_name='%s', telegram_id='%d')>" % (self.first_name, self.last_name, self.telegram_id)
+        return "<User(first_name='%s', last_name='%s', telegram_id='%d', known='%d')>" % (self.first_name, self.last_name, self.telegram_id, self.known)
 
 
 class Url(Base):
