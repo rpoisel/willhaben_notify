@@ -74,30 +74,43 @@ class WNDB(object):
 
 
 def main():
-    db = WNDB(path=expanduser('~/wn.sqlite'))
+    db = WNDB(path='/tmp/wn.sqlite')
     session = db.getSession()
-    telegram_user = User(first_name="Some", last_name="One", telegram_id = 9999)
-    session.add(telegram_user)
-    welds = Url(
-        location='http://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?ELECTROTOOLS_DETAIL=15&areaId=3&CATEGORY%2FMAINCATEGORY=8210&CATEGORY%2FSUBCATEGORY=8326&PRICE_FROM=0&PRICE_TO=300')
-    session.add(welds)
-    session.flush()
-    subscription = Subscription(
-        user_id=telegram_user.id,
-        query_period=3600,
-        url_id=welds.id)
-    session.add(subscription)
-    for user in session.query(User).filter(User.first_name=='Some'):
-        print(user)
-    for subscription in session.query(Subscription):
-        subscription.lastquery = datetime.now()
-    session.commit()
+    try:
+        telegram_user = User(first_name="Some", last_name="One", telegram_id = 9999)
+        session.add(telegram_user)
+        welds = Url(
+            location='http://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?ELECTROTOOLS_DETAIL=15&areaId=3&CATEGORY%2FMAINCATEGORY=8210&CATEGORY%2FSUBCATEGORY=8326&PRICE_FROM=0&PRICE_TO=300')
+        session.add(welds)
+        session.flush()
+        subscription = Subscription(
+            user_id=telegram_user.id,
+            query_period=3600,
+            url_id=welds.id)
+        session.add(subscription)
+        for user in session.query(User).filter(User.first_name=='Some'):
+            print(user)
+        for subscription in session.query(Subscription):
+            subscription.lastquery = datetime.now()
+
+        #sent = SentOffer(user_id=telegram_user.id, url_id=0)
+        #session.add(sent)
+
+        #raise Exception("Prevent commit.")
+
+        print("Committing session.")
+        session.commit()
+    except Exception as exc:
+        print(exc)
+        session.rollback()
+    finally:
+        print("Closing session.")
+        session.close()
+
+    session = db.getSession()
     for user, subscription, url in \
         session.query(User, Subscription, Url).filter(User.id == Subscription.user_id).filter(Subscription.url_id == Url.id).all():
         print(user.first_name + ", " + user.last_name + ", " + url.location)
-    #sent = SentOffer(user_id=telegram_user.id, url_id=0)
-    #session.add(sent)
-    #session.commit()
 
 if __name__ == "__main__":
     main()
