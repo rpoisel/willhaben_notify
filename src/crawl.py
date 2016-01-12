@@ -62,6 +62,9 @@ class CrawlerBase(object):
     def _getItemClass(self):
         raise Exception('Not implemented')
 
+    def getShortestValidPeriod(self):
+        return 7200
+
     def crawl(self):
         items = []
         pageSource = self.__makeRequest()
@@ -92,6 +95,14 @@ class WHCrawlFactory(object):
     @staticmethod
     def crawlerExists(url):
         return WHCrawlFactory.__getBaseUrl(url) in WHCrawlFactory.CRAWLERS
+
+    @staticmethod
+    def isCrawlingPeriodValid(url, period):
+        try:
+            crawler = WHCrawlFactory.getCrawler(url)
+            return period > crawler.getShortestValidPeriod()
+        except Exception as exc:
+            return False
 
     @staticmethod
     def getCrawler(url):

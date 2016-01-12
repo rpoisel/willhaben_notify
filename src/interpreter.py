@@ -124,8 +124,9 @@ class CommandSubscribe(CommandSubscriptionBase):
 
         try:
             if not WHCrawlFactory.crawlerExists(arguments[0]):
-                telegram.send_msg(peer.id, "Could not find a suitable crawler for the site provided!")
-                return
+                raise Exception("Could not find a suitable crawler for the site provided!")
+            if not WHCrawlFactory.isCrawlingPeriodValid(arguments[0], int(arguments[1])):
+                raise Exception("Given crawling period is not valid.")
 
             # add URL
             urlId = self._makeSureUrlExists(dbSession, arguments[0])
