@@ -29,9 +29,11 @@ class Telegram(object):
             updates = self.__bot.get_updates().wait()
 
         for update in updates:
-            self.__logger.warning(str(update.message.sender) + ": " + update.message.text)
-            self.__updateOffset = update.update_id
-            self.__interpreter.interpret(dbSession, self, update.message.sender, update.message.text.split(' '))
+            if hasattr(update, 'message'):
+                self.__logger.warning(str(update.message.sender) + ": " + update.message.text)
+                self.__interpreter.interpret(dbSession, self, update.message.sender, update.message.text.split(' '))
+            if hasattr(update, 'update_id'):
+                self.__updateOffset = update.update_id
 
     def shutdown(self):
         pass
