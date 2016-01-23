@@ -28,6 +28,9 @@ class Telegram(object):
         else:
             updates = self.__bot.get_updates().wait()
 
+        if updates is None:
+            return
+
         for update in updates:
             if hasattr(update, 'message'):
                 self.__logger.warning(str(update.message.sender) + ": " + update.message.text)
