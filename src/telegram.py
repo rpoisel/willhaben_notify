@@ -23,12 +23,15 @@ class Telegram(object):
 
     def getUpdates(self, dbSession):
         updates = None
-        if self.__updateOffset is not None:
-            updates = self.__bot.get_updates(offset=self.__updateOffset + 1).wait()
-        else:
-            updates = self.__bot.get_updates().wait()
+        try:
+            if self.__updateOffset is not None:
+                updates = self.__bot.get_updates(offset=self.__updateOffset + 1).wait()
+            else:
+                updates = self.__bot.get_updates().wait()
 
-        if updates is None:
+            if updates is None:
+                raise Exception("No updates have been received due to an error")
+        except:
             return
 
         for update in updates:

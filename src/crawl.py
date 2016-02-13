@@ -49,8 +49,11 @@ class CrawlerBase(object):
         self._url = url
 
     def __makeRequest(self):
-        httpHeaders = {'User-Agent': random.choice(CrawlerBase.USER_AGENTS)}
-        return requests.get(self._url, headers=httpHeaders, proxies=CrawlerBase.PROXIES_DICT).text
+        try:
+            httpHeaders = {'User-Agent': random.choice(CrawlerBase.USER_AGENTS)}
+            return requests.get(self._url, headers=httpHeaders, proxies=CrawlerBase.PROXIES_DICT).text
+        except:
+            return ''
 
     def __getElements(self, pageSource):
         tree = html.fromstring(pageSource)
